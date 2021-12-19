@@ -211,9 +211,10 @@ class QNet_MLP(QNet):
 
 
 class QLearner(object):
-    def __init__(self, env, q_function, discount=DEFAULT_DISCOUNT, rm_size=RMSIZE):
+    def __init__(self, env, q_function, target_q_function, discount=DEFAULT_DISCOUNT, rm_size=RMSIZE):
         self.env = env
         self.Q = q_function
+        self.target_Q = target_q_function
         self.rm = ReplayMemory(rm_size)  # replay memory stores (a subset of) experience across episode
         self.discount = discount
 
@@ -248,6 +249,7 @@ class QLearner(object):
         self.dis_r += reward * (self.discount ** self.stage)
         self.stage += 1
         self.Q.single_Q_update(prev_observation, action, observation, reward, done)
+        self.target_Q.single_Q_update(prev_observation, action, observation, reward, done)
         self.last_obs = observation
         self.rm.store_experience(prev_observation, action, observation, reward, done)
         if self.tot_stages > 10 * self.batch_size:
@@ -266,6 +268,7 @@ class QLearner(object):
             #print("dones = ", dones)
             #dones = np.invert(dones)
             self.Q.batch_Q_update(obs, actions, next_obs, rewards, dones)
+            self.target_Q.batch_Q_update(obs, actions, next_obs, rewards, dones)
             # and update the network using this batch (batch_Q_update)
             # def batch_Q_update(self, obs, actions, next_obs, rewards, dones):
             # experience = {prev_obs, action, observation, reward, done}
