@@ -48,7 +48,7 @@ def act_loop(env, agent, num_episodes):
                 env.render()
                 agent.report()
                 break
-
+        agent.target_Q.load_state_dict(agent.Q.state_dict())
     env.close()
 
 
