@@ -11,13 +11,15 @@ MAX_EPISODE_LENGTH = 500
 DEFAULT_DISCOUNT = 0.9
 EPSILON = 0.05
 LEARNINGRATE = 0.1
+USE_SOFTMAX = True
 
 
 class QLearner:
     """
     Q-learning agent
     """
-    def __init__(self, num_states, num_actions, nrow, ncol, discount=DEFAULT_DISCOUNT, learning_rate=LEARNINGRATE):
+    def __init__(self, num_states, num_actions, nrow, ncol, discount=DEFAULT_DISCOUNT, learning_rate=LEARNINGRATE,
+                 use_softmax=USE_SOFTMAX):
         self.name = "agent1"
         self.num_states = num_states
         self.num_actions = num_actions
@@ -28,6 +30,7 @@ class QLearner:
         # print('size', ncol, nrow)
         self.size = nrow*ncol
         self.q_table = np.zeros((self.num_states, self.num_actions))
+        self.use_softmax = use_softmax
 
         #for i in range(0, self.size):
         #    if i / ncol != 0:
@@ -95,18 +98,29 @@ class QLearner:
         Returns an action, selected based on the current state
         """
         # print("State: ", state)
-
         action_space = self.action_space(state)
-        if np.random.random() > EPSILON:
-            possible_actions = [Option(action, self.q_table[state, action]) for action in action_space]
+        if not self.use_softmax:
+            if np.random.random() > EPSILON:
+                possible_actions = [Option(action, self.q_table[state, action]) for action in action_space]
 
-            random.shuffle(possible_actions)
-            # print(list(map(lambda x: str(x), possible_actions)))
-            return max(possible_actions, key=operator.attrgetter("q")).action
-            # random.shuffle(best_actions)
-            # print('best actions', best_actions)
-            # return np.random.choice(best_actions)
-        return np.random.choice(action_space)
+                random.shuffle(possible_actions)
+                # print(list(map(lambda x: str(x), possible_actions)))
+                return max(possible_actions, key=operator.attrgetter("q")).action
+                # random.shuffle(best_actions)
+                # print('best actions', best_actions)
+                # return np.random.choice(best_actions)
+            return np.random.choice(action_space)
+        else:
+            temperature = 100.0
+            t = temperature
+            p = np.array([self.q_table[(state, action)] / t for action in action_space])
+            prob_actions = np.exp(p) / np.sum(np.exp(p))
+            cumulative_probability = 0.0
+            choice = random.uniform(0, 1)
+            for a, pr in enumerate(prob_actions):
+                cumulative_probability += pr
+                if cumulative_probability > choice:
+                    return a
 
         # choose action according to
         # the probability distribution
