@@ -25,18 +25,30 @@ LEARNINGRATENET = 0.0001  # QNET
 
 # TODO coding exercise 3: implement experience replay
 class ReplayMemory(object):
+    # experiences = []
     # ReplayMemory should store the last "size" experiences
     # and be able to return a randomly sampled batch of experiences
     def __init__(self, size):
-        pass #<- TODO: you need to modify this
+        self.experiences = []
+        self.size = size
+        self.counter = 0
 
     # Store experience in memory
     def store_experience(self, prev_obs, action, observation, reward, done):
-        pass #<- TODO: you need to modify this
+        experience = (prev_obs, action, observation, reward, done)
+
+        if (len(self.experiences) < self.size):
+            self.experiences.append(experience)
+        else:
+            self.experiences[self.counter % self.size] = experience
+
+        self.counter += 1
 
     # Randomly sample "batch_size" experiences from the memory and return them
     def sample_batch(self, batch_size):
-        pass #<- TODO: you need to modify this
+        if batch_size > len(self.experiences):
+            raise Exception('Not enough experiences')
+        return random.sample(self.experiences, batch_size)
 
 
 # DEBUG=True
@@ -145,7 +157,7 @@ class QNet(nn.Module):
                                    target, td, new_q)
 
     def batch_Q_update(self, obs, actions, next_obs, rewards, dones):
-
+        # print("dones = " , dones)
         batch_size = len(dones)
         v_next_obs = self.max_Q_value(next_obs, batch_size)
         not_dones = 1 - dones
@@ -199,9 +211,10 @@ class QNet_MLP(QNet):
 
 
 class QLearner(object):
-    def __init__(self, env, q_function, discount=DEFAULT_DISCOUNT, rm_size=RMSIZE):
+    def __init__(self, env, q_function, target_q_function, discount=DEFAULT_DISCOUNT, rm_size=RMSIZE):
         self.env = env
         self.Q = q_function
+        self.target_Q = target_q_function
         self.rm = ReplayMemory(rm_size)  # replay memory stores (a subset of) experience across episode
         self.discount = discount
 
@@ -236,12 +249,29 @@ class QLearner(object):
         self.dis_r += reward * (self.discount ** self.stage)
         self.stage += 1
         self.Q.single_Q_update(prev_observation, action, observation, reward, done)
+        self.target_Q.single_Q_update(prev_observation, action, observation, reward, done)
         self.last_obs = observation
-
-        # TODO coding exercise 3: Do a batch update using experience stored in the replay memory
-        # if self.tot_stages > 10 * self.batch_size:
-            # sample a batch of batch_size from the replay memory
+        self.rm.store_experience(prev_observation, action, observation, reward, done)
+        if self.tot_stages > 10 * self.batch_size:
+            updateBatch = self.rm.sample_batch(self.batch_size)
+            obs = []
+            actions = []
+            next_obs = []
+            rewards = []
+            dones = np.array([])
+            for x in updateBatch:
+                obs.append(x[0])
+                actions.append(x[1])
+                next_obs.append(x[2])
+                rewards.append(x[3])
+                dones = np.append(dones, x[4])
+            #print("dones = ", dones)
+            #dones = np.invert(dones)
+            self.Q.batch_Q_update(obs, actions, next_obs, rewards, dones)
+            self.target_Q.batch_Q_update(obs, actions, next_obs, rewards, dones)
             # and update the network using this batch (batch_Q_update)
+            # def batch_Q_update(self, obs, actions, next_obs, rewards, dones):
+            # experience = {prev_obs, action, observation, reward, done}
 
 
     def select_action(self):
