@@ -14,6 +14,7 @@ from io import StringIO
 
 from gym import utils
 from gym.envs.toy_text import discrete
+from gym import Env
 
 LEFT = 0
 DOWN = 1
