@@ -1,17 +1,25 @@
 from enum import IntEnum
+from enum import Enum
 import numpy as np
 import random
 import operator
 from functools import total_ordering
+import math
 
 NUM_EPISODES = 1000
 MAX_EPISODE_LENGTH = 500
 
 
+class ExplorationMode(Enum):
+    E_GREEDY = 0
+    SOFTMAX = 1
+    UCB_1 = 2
+
+
 DEFAULT_DISCOUNT = 0.9
 EPSILON = 0.05
 LEARNINGRATE = 0.1
-USE_SOFTMAX = True
+EXPLORATION_MODE = ExplorationMode.UCB_1
 
 
 class QLearner:
@@ -19,7 +27,7 @@ class QLearner:
     Q-learning agent
     """
     def __init__(self, num_states, num_actions, nrow, ncol, discount=DEFAULT_DISCOUNT, learning_rate=LEARNINGRATE,
-                 use_softmax=USE_SOFTMAX):
+                 exploration_mode=EXPLORATION_MODE):
         self.name = "agent1"
         self.num_states = num_states
         self.num_actions = num_actions
@@ -30,7 +38,8 @@ class QLearner:
         # print('size', ncol, nrow)
         self.size = nrow*ncol
         self.q_table = np.zeros((self.num_states, self.num_actions))
-        self.use_softmax = use_softmax
+        self.exploration_mode = exploration_mode
+        self.exploration_bonus = np.ones((self.num_states, self.num_actions))
 
         #for i in range(0, self.size):
         #    if i / ncol != 0:
@@ -87,6 +96,9 @@ class QLearner:
         r = reward
         gamma = self.discount
 
+        #Register that the agent has been here another time
+        self.exploration_bonus[state, action] += 1.0
+
         if done:
             self.q_table[state, action] = (1 - alpha) * q_old + alpha * r
         else:
@@ -99,7 +111,7 @@ class QLearner:
         """
         # print("State: ", state)
         action_space = self.action_space(state)
-        if not self.use_softmax:
+        if self.exploration_mode == ExplorationMode.E_GREEDY:
             if np.random.random() > EPSILON:
                 possible_actions = [Option(action, self.q_table[state, action]) for action in action_space]
 
@@ -110,7 +122,7 @@ class QLearner:
                 # print('best actions', best_actions)
                 # return np.random.choice(best_actions)
             return np.random.choice(action_space)
-        else:
+        elif self.exploration_mode == ExplorationMode.SOFTMAX:
             temperature = 100.0
             t = temperature
             p = np.array([self.q_table[(state, action)] / t for action in action_space])
@@ -121,7 +133,11 @@ class QLearner:
                 cumulative_probability += pr
                 if cumulative_probability > choice:
                     return a
-
+        else:
+            possible_actions = [Option(action, self.q_table[state, action] + self.bonus(state, action))
+                                for action in action_space]
+            random.shuffle(possible_actions)
+            return max(possible_actions, key=operator.attrgetter("q")).action
         # choose action according to
         # the probability distribution
         # action = np.random.choice(np.arange(
@@ -135,6 +151,12 @@ class QLearner:
         Function to print useful information, printed during the main loop
         """
         print("---")
+
+    def bonus(self, state, action):
+        c = 0.3
+        exploration_sum = np.sum(self.exploration_bonus[state, :])
+        in_root: float = 2 * (math.log(exploration_sum) / self.exploration_bonus[state, action])
+        return 100.0 * c * math.sqrt(in_root)
 
 
 class Action(IntEnum):

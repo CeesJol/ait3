@@ -52,8 +52,8 @@ def act_loop(env, agent, num_episodes):
 
 
 if __name__ == "__main__":
-    # env = simple_grid.DrunkenWalkEnv(map_name="walkInThePark")
-    env = simple_grid.DrunkenWalkEnv(map_name="theAlley")
+    env = simple_grid.DrunkenWalkEnv(map_name="walkInThePark")
+    # env = simple_grid.DrunkenWalkEnv(map_name="theAlley")
     num_a = env.action_space.n
 
     if type(env.observation_space) == gym.spaces.discrete.Discrete:
