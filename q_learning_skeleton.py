@@ -19,7 +19,7 @@ class ExplorationMode(Enum):
 DEFAULT_DISCOUNT = 0.9
 EPSILON = 0.05
 LEARNINGRATE = 0.1
-EXPLORATION_MODE = ExplorationMode.UCB_1
+EXPLORATION_MODE = ExplorationMode.SOFTMAX
 
 
 class QLearner:
@@ -123,16 +123,17 @@ class QLearner:
                 # return np.random.choice(best_actions)
             return np.random.choice(action_space)
         elif self.exploration_mode == ExplorationMode.SOFTMAX:
-            temperature = 100.0
+            temperature = 1.0
             t = temperature
             p = np.array([self.q_table[(state, action)] / t for action in action_space])
             prob_actions = np.exp(p) / np.sum(np.exp(p))
             cumulative_probability = 0.0
             choice = random.uniform(0, 1)
+            # print([(Action(a), prob) for a, prob in enumerate(prob_actions)])
             for a, pr in enumerate(prob_actions):
                 cumulative_probability += pr
                 if cumulative_probability > choice:
-                    return a
+                    return action_space[a]
         else:
             possible_actions = [Option(action, self.q_table[state, action] + self.bonus(state, action))
                                 for action in action_space]
